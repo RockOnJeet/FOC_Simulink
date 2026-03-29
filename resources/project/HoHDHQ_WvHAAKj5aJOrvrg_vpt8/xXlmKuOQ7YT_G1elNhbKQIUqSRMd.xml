@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Info description="Comparison framework for BLDC motor control strategies (FOC vs 6-step trapezoidal). Contains shared physical model, separate controller models, and automated scripts for running simulations and extracting metrics such as Id, torque ripple, and efficiency."/>
