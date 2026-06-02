@@ -54,9 +54,16 @@ ehthumbs.db
 *.tmp
 *.temp
 *.old
+*.original
 *.slx.autosave
 *.slx.r*
 *.mdl.r*
+
+# Generated binary and hardware build outputs
+*.eep
+*.elf
+*.hex
+untitled_ert_rtw/
 
 # Local editor/project folders
 Animation/
