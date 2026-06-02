@@ -1,43 +1,90 @@
+%% ===================== INPUTS =====================
+Ts = sim_in.local_solver_ts;
+Fs = 1/Ts;
 
-% Inputs
-Ts = sim_in.local_solver_ts;           % sample time (s)
-Fs = 1/Ts;                             % sampling frequency (Hz)
-t = out.I_ph_6sect.Time(:);            % time vector (optional, for checks)
-D = out.I_ph_6sect.Data;               % size 1x3xN
-% t = out.I_ph_FOC.Time(:);            % time vector (optional, for checks)
-% D = out.I_ph_FOC.Data;               % size 1x3xN
+t = out.I_ph_6sect.Time(:);
+D = out.I_ph_6sect.Data;
+%t = out.I_ph_FOC.Time(:);
+%D = out.I_ph_FOC.Data;
 
-% Extract channel (change second index for other channels)
-x = squeeze(D(1,1,:));                 % column vector length N
-N = numel(x);
+x = squeeze(D(1,1,:));   % Phase A
 
-% Optional: verify uniform sampling
-if max(abs(diff(t) - Ts)) > 1e-6*Ts, warning('Nonuniform sampling'); end
+%% ===================== FUNDAMENTAL =====================
+omega = out.speed.Data;          % rad/s
+omega_ss_est = mean(omega(end-1000:end));  % rough steady estimate
 
-% Window and FFT settings
-w = hann(N);                           % window to reduce leakage
-Nfft = 2^nextpow2(N);                  % zero-pad to next power of two
-X = fft(x .* w, Nfft);
+P = motor.P;
+f0 = (P/(2*pi)) * omega_ss_est;
 
-% Single-sided amplitude spectrum (compensate for window energy)
+fprintf('Estimated f0 = %.4f Hz\n', f0);
+
+%% ===================== USER SETTINGS =====================
+t_start = 3.5;          % AFTER torque transient settles
+num_cycles = 8;         % enough for low frequency
+
+T0 = 1/f0;
+t_end = t_start + num_cycles*T0;
+
+idx = (t >= t_start) & (t <= t_end);
+
+t_ss = t(idx);
+x_ss = x(idx);
+
+N = numel(x_ss);
+
+if N < 50
+    error('Too few samples. Increase simulation time.');
+end
+
+%% ===================== WINDOW + FFT =====================
+w = hann(N);
+Nfft = 2^nextpow2(N);
+
+X = fft(x_ss .* w, Nfft);
+
 P2 = abs(X)/N;
 P1 = P2(1:floor(Nfft/2)+1);
 P1(2:end-1) = 2*P1(2:end-1);
-winGain = sum(w)/N;
-P1 = P1 / winGain;                     % correct amplitude reduction by window
 
-% Frequency axis
-f = (0:floor(Nfft/2)) * (Fs / Nfft);
+% Window correction
+P1 = P1 / (sum(w)/N);
 
-% Calculate THD
-THD = thd(x, Fs);
-THD_percent = 100 * 10^(THD/20);
+f = (0:floor(Nfft/2)) * (Fs/Nfft);
 
-% Plot
+%% ===================== FUNDAMENTAL BIN =====================
+[~, idx_f0] = min(abs(f - f0));
+A1 = P1(idx_f0);
+
+%% ===================== HARMONIC SELECTION =====================
+max_harmonic = 15;   % up to 15th harmonic
+
+harm_power = 0;
+
+for k = 2:max_harmonic
+    fk = k * f0;
+    [~, idx_k] = min(abs(f - fk));
+    harm_power = harm_power + P1(idx_k)^2;
+end
+
+THD = sqrt(harm_power) / A1;
+THD_percent = THD * 100;
+
+fprintf('THD = %.2f %%\n', THD_percent);
+
+%% ===================== SAVE =====================
+results.f = f;
+results.P1 = P1;
+results.f0 = f0;
+results.THD = THD_percent;
+
+assignin('base','fft_6sect',results);   % for 6-step
+%assignin('base','fft_foc',results);  % for FOC (run separately)
+
+%% ===================== PLOT =====================
 figure
 plot(f, P1)
 xlabel('Frequency (Hz)')
 ylabel('Amplitude')
-title(sprintf('Channel 1 - THD: %.2f%%', THD_percent))
-xlim([0 Fs/2])
+title(sprintf('FFT Spectrum (THD = %.2f%%)', THD_percent))
+xlim([0 max_harmonic*f0])
 grid on
