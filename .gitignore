@@ -38,3 +38,25 @@ codegen/
 # SimBiology backup files
 *.sbproj.backup
 *.sbproj.bak
+
+# System files
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+*.lnk
+
+# Autosave and temporary files
+*~
+*.autosave
+*.asv
+*.bak
+*.tmp
+*.temp
+*.old
+*.slx.autosave
+*.slx.r*
+*.mdl.r*
+
+# Local editor/project folders
+Animation/
